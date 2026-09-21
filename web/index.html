@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voxel AI - Modèle Conversationnel 500M</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-logo">
+          <div class="voxel-cube"></div>
+          <span class="brand-name">Voxel <span class="brand-accent">AI</span></span>
+        </div>
+        <span class="badge-tag">500M Params</span>
+      </div>
+
+      <div class="header-right">
+        <div class="status-indicator" id="statusIndicator">
+          <span class="status-dot"></span>
+          <span class="status-text" id="statusText">Connexion...</span>
+        </div>
+        <button class="icon-btn" id="btnSettings" title="Paramètres d'inférence" aria-label="Paramètres">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+        </button>
+        <button class="icon-btn" id="btnClear" title="Effacer la conversation" aria-label="Effacer">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Chat Content -->
+    <main class="chat-viewport">
+      <div class="chat-container" id="chatContainer">
+        <!-- Welcome Screen -->
+        <div class="welcome-card" id="welcomeCard">
+          <div class="welcome-icon">
+            <div class="voxel-cube-large"></div>
+          </div>
+          <h1>Bienvenue sur <span class="brand-accent">Voxel AI</span></h1>
+          <p>Une IA conversationnelle de 500 millions de paramètres, entraînée de zéro sans modèle externe. Optimisée pour Snapdragon X Plus et CPU ARM64.</p>
+          
+          <div class="quick-prompts">
+            <button class="prompt-chip" data-prompt="Bonjour Voxel ! Qui es-tu et quelles sont tes capacités ?">
+              ✨ Qui es-tu ?
+            </button>
+            <button class="prompt-chip" data-prompt="Pourquoi le processeur ARM consomme-t-il moins d'énergie que le x86 ?">
+              ⚡ ARM vs x86
+            </button>
+            <button class="prompt-chip" data-prompt="Explique-moi simplement le fonctionnement d'un réseau de neurones.">
+              🧠 Réseaux de neurones
+            </button>
+            <button class="prompt-chip" data-prompt="Donne-moi 3 astuces pour améliorer ma productivité quotidienne.">
+              🎯 Productivité
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Message Stream -->
+        <div class="messages-list" id="messagesList"></div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+          <div class="voxel-avatar mini">V</div>
+          <div class="typing-bubble">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Input Section -->
+    <footer class="input-section">
+      <div class="input-container">
+        <textarea 
+          id="userInput" 
+          rows="1" 
+          placeholder="Envoyez un message à Voxel AI..." 
+          aria-label="Message"></textarea>
+        <button id="btnSend" class="send-btn" title="Envoyer" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+        </button>
+      </div>
+      <div class="input-footer">
+        <span>Voxel AI 500M • ARM64 / Snapdragon X Plus • Open Source</span>
+      </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div class="modal-backdrop" id="settingsModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Paramètres de Génération</h3>
+          <button class="close-btn" id="btnCloseSettings">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <div class="setting-label">
+              <span>Température</span>
+              <span class="setting-val" id="tempVal">0.7</span>
+            </div>
+            <input type="range" id="tempRange" min="0.1" max="1.5" step="0.05" value="0.7">
+            <small>Contrôle la créativité. Une valeur basse donne des réponses plus prévisibles.</small>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span>Top-P (Nucleus)</span>
+              <span class="setting-val" id="topPVal">0.90</span>
+            </div>
+            <input type="range" id="topPRange" min="0.1" max="1.0" step="0.05" value="0.90">
+            <small>Seuil de probabilité cumulée pour l'échantillonnage de jetons.</small>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span>Tokens Max</span>
+              <span class="setting-val" id="maxTokensVal">512</span>
+            </div>
+            <input type="range" id="maxTokensRange" min="64" max="2048" step="64" value="512">
+            <small>Longueur maximale de la réponse générée.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

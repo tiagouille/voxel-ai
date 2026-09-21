@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+scratch/
+colab/
+dataset/
+training/
+tests/
+GUIDE_HEBERGEMENT.txt
+DEPLOIE_SUR_HUGGINGFACE.bat
+deploy_to_huggingface.py
+
+# Les poids du modèle sont automatiquement téléchargés depuis Hugging Face
+checkpoints/*.pt
+checkpoints/*.gguf
+checkpoints/*.bin

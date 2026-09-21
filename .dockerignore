@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+.env
+.venv
+venv
+scratch
+colab/
+dataset/
+training/
+tests/
+GUIDE_HEBERGEMENT.txt
+deploy_to_huggingface.py
+DEPLOIE_SUR_HUGGINGFACE.bat

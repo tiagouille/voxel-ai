@@ -1,0 +1,20 @@
+{
+  "vocab_size": 1000,
+  "special_tokens": [
+    "<pad>",
+    "<s>",
+    "</s>",
+    "<unk>",
+    "<|system|>",
+    "<|user|>",
+    "<|assistant|>",
+    "<|endoftext|>"
+  ],
+  "pad_token_id": 0,
+  "bos_token_id": 1,
+  "eos_token_id": 2,
+  "unk_token_id": 3,
+  "system_token_id": 4,
+  "user_token_id": 5,
+  "assistant_token_id": 6
+}
