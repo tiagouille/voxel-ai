@@ -622,3 +622,39 @@ input[type="range"] {
   white-space: pre-wrap;
 }
 
+/* Blocs de code informatique */
+.code-block {
+  background: #090c14;
+  border: 1px solid rgba(124, 58, 237, 0.35);
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.code-header {
+  background: rgba(124, 58, 237, 0.18);
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  color: #c084fc;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(124, 58, 237, 0.2);
+  display: flex;
+  align-items: center;
+}
+
+.code-block code {
+  display: block;
+  padding: 12px 14px;
+  color: #38bdf8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.86rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  background: transparent;
+}
+
+

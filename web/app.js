@@ -311,13 +311,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function formatMarkdown(text) {
     if (!text) return "";
+    // Extraire et protéger les blocs de code ```lang ... ```
+    const codeBlocks = [];
+    text = text.replace(/```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+      const id = `___CODE_BLOCK_${codeBlocks.length}___`;
+      const cleanLang = lang ? lang.trim() : "code";
+      codeBlocks.push(`<pre class="code-block"><div class="code-header">${escapeHtml(cleanLang)}</div><code>${escapeHtml(code.trim())}</code></pre>`);
+      return id;
+    });
+
     let html = escapeHtml(text);
     // Gras : **texte**
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Titres : ### Titre
+    html = html.replace(/(?:^|\n)### (.*?)(?=\n|$)/g, '<br><strong style="color: #c084fc;">$1</strong>');
     // Puces : - élément
     html = html.replace(/(?:^|\n)- (.*?)(?=\n|$)/g, '<br>• $1');
     // Sauts de ligne
     html = html.replace(/\n/g, '<br>');
+
+    // Réinsérer les blocs de code
+    codeBlocks.forEach((cb, i) => {
+      html = html.replace(`___CODE_BLOCK_${i}___`, cb);
+    });
+
     return html;
   }
 
