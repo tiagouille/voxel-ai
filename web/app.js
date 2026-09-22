@@ -302,11 +302,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const answerEl = bubble.querySelector(".answer-text");
       if (answerEl) {
-        answerEl.textContent = answerText;
+        answerEl.innerHTML = formatMarkdown(answerText);
       }
     } else {
-      bubble.textContent = text;
+      bubble.innerHTML = formatMarkdown(text);
     }
+  }
+
+  function formatMarkdown(text) {
+    if (!text) return "";
+    let html = escapeHtml(text);
+    // Gras : **texte**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // Puces : - élément
+    html = html.replace(/(?:^|\n)- (.*?)(?=\n|$)/g, '<br>• $1');
+    // Sauts de ligne
+    html = html.replace(/\n/g, '<br>');
+    return html;
   }
 
   function escapeHtml(str) {

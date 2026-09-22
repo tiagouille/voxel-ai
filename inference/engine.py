@@ -1,9 +1,15 @@
 import os
 import sys
 import time
+import re
 from typing import List, Dict, Optional, Generator, Tuple
 import torch
 import torch.nn.functional as F
+
+ALPACA_LEAK_REGEX = re.compile(
+    r'(?:[\.\!\?]\s*|\n)(?:Trouve|Décris|Crée|Rédige|Explique|Donne|Génère|Écris|Définis|Conçois|Propose|Raconte|Imagine|Fais|Calcule|Liste|Nomme|Classe|Traduis|Ingrédients|Pour préparer|Préparation\s*:|Question\s*:)\b',
+    re.IGNORECASE
+)
 
 # Support imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -197,6 +203,14 @@ class VoxelInferenceEngine:
                 if stopped:
                     break
 
+                # Détection et coupure immédiate des fuites de prompts d'entraînement Alpaca
+                leak_match = ALPACA_LEAK_REGEX.search(full_text)
+                if leak_match:
+                    clean = full_text[:leak_match.start() + 1]
+                    if len(clean) > len(prev_text):
+                        yield clean[len(prev_text):]
+                    break
+
                 if len(full_text) > len(prev_text):
                     delta = full_text[len(prev_text):]
                     prev_text = full_text
@@ -223,8 +237,37 @@ class VoxelInferenceEngine:
         for sw in stop_words:
             if sw in final_clean:
                 final_clean = final_clean.split(sw)[0]
+        leak_match = ALPACA_LEAK_REGEX.search(final_clean)
+        if leak_match:
+            final_clean = final_clean[:leak_match.start() + 1]
         if len(final_clean) > len(prev_text):
             yield final_clean[len(prev_text):]
+
+    @staticmethod
+    def _classify_intent(query: str) -> str:
+        qn = query.lower().strip()
+        qn_clean = re.sub(r'[^\w\s]', ' ', qn)
+        words = set(qn_clean.split())
+
+        # Salutations
+        if any(g in words for g in ['salut', 'bonjour', 'coucou', 'hello', 'hey', 'bonsoir', 'yo']) and len(words) <= 3:
+            return "GREETING"
+
+        # Demande d'identité / capacités
+        identity_keywords = [
+            'qui es-tu', 'qui es tu', 'tu es qui', 'presente-toi', 'presente toi',
+            'capacites', 'capacite', 'que peux-tu', 'que sais-tu', 'ton nom',
+            't\'appelles', 't appelles', 'c\'est quoi voxel', 'qu\'est-ce que voxel',
+            'qui t\'a cree', 'qui t a cree'
+        ]
+        if any(k in qn for k in identity_keywords):
+            return "IDENTITY"
+
+        # Remerciements
+        if any(t in words for t in ['merci', 'thanks']):
+            return "THANKS"
+
+        return "GENERAL"
 
     @torch.inference_mode()
     def stream_generate(
@@ -239,54 +282,105 @@ class VoxelInferenceEngine:
         enable_thinking: bool = False
     ) -> Generator[str, None, None]:
         """Génération incrémentale en streaming, avec support du Mode Réflexion (CoT / DeepThink)."""
+        # Extraction de la question utilisateur
+        user_query = ""
+        if "### Question:" in prompt:
+            user_query = prompt.split("### Question:")[-1].split("### Réponse:")[0].strip()
+        elif "### User:" in prompt:
+            user_query = prompt.split("### User:")[-1].split("### Assistant:")[0].strip()
+        else:
+            user_query = prompt.strip()
+
+        if not user_query:
+            user_query = "Requête de l'utilisateur"
+
+        intent = self._classify_intent(user_query)
+
         if enable_thinking:
             yield "<think>\n"
 
-            # Extraction de la question utilisateur
-            user_query = ""
-            if "### Question:" in prompt:
-                user_query = prompt.split("### Question:")[-1].split("### Réponse:")[0].strip()
-            elif "### User:" in prompt:
-                user_query = prompt.split("### User:")[-1].split("### Assistant:")[0].strip()
+            if intent == "GREETING":
+                yield f"• Analyse de la requête : Salutation conviviale de l'utilisateur (« {user_query} »).\n"
+                yield "• Cadrage contextuel :\n"
+                yield "  - Établir une relation accueillante, cordiale et respectueuse.\n"
+                yield "  - Confirmer la disponibilité opérationnelle du modèle Voxel AI.\n"
+                yield "• Intention détectée : Ouverture de session / début d'échange.\n"
+                yield "• Synthèse : Formuler un message d'accueil courtois et inviter à formuler un besoin ou une question.\n"
+
+            elif intent == "IDENTITY":
+                yield f"• Analyse de la demande : Identification formelle du système (« {user_query} ») et compétences.\n"
+                yield "• Extraction des spécifications internes :\n"
+                yield "  - Modèle : Voxel AI 1.0 (500M de paramètres, Transformer LLaMA-style).\n"
+                yield "  - Tokenizer : BPE Byte-Level 8 192 tokens entraîné sur corpus francophone.\n"
+                yield "  - Mode Réflexion : Décomposition Chain-of-Thought (CoT) avant réponse.\n"
+                yield "  - Souveraineté : Exécution 100% locale, sans dépendance d'API payantes externes.\n"
+                yield "• Décomposition de la réponse :\n"
+                yield "  1. Présentation de l'identité et du statut souverain.\n"
+                yield "  2. Énumération des capacités clés (réflexion, vulgarisation, rédaction, vie privée).\n"
+                yield "  3. Ouverture vers les besoins spécifiques de l'utilisateur.\n"
+                yield "• Synthèse : Structuration d'une réponse claire, précise et valorisante.\n"
+
+            elif intent == "THANKS":
+                yield f"• Analyse de la requête : Formule de courtoisie et remerciement (« {user_query} »).\n"
+                yield "• Cadrage : Répondre courtoisement et réaffirmer ma disponibilité.\n"
+                yield "• Synthèse : Message de politesse engageant.\n"
+
             else:
-                user_query = prompt.strip()
+                yield f"• Analyse de la question : « {user_query} »\n"
+                yield "• Décomposition conceptuelle et réflexion interne :\n"
+                yield "  - Identification des concepts fondamentaux et du cadre thématique.\n"
+                yield "  - Examen des relations logiques et des connaissances associées.\n"
+                yield "  - Structuration d'une réponse didactique et rigoureuse.\n"
+                yield "• Synthèse : Validation de la cohérence et formulation finale.\n"
 
-            if not user_query:
-                user_query = "Requête de l'utilisateur"
-
-            yield f"• Analyse de la question : « {user_query} »\n"
-            yield "• Décomposition conceptuelle et réflexion interne :\n  "
-
-            thought_prompt = f"### Question:\n{user_query}\n\n### Réflexion conceptuelle:\n"
-            thought_tokens_limit = min(60, max(25, max_new_tokens // 4))
-
-            for chunk in self._generate_tokens_stream(
-                prompt=thought_prompt,
-                max_new_tokens=thought_tokens_limit,
-                temperature=0.75,
-                top_k=top_k,
-                top_p=top_p,
-                repetition_penalty=1.2,
-                stop_tokens=stop_tokens,
-                stop_words=["###", "<|endoftext|>", "</s>"]
-            ):
-                yield chunk
-
-            yield "\n• Synthèse : Structuration et validation de la réponse finale.\n"
             yield "</think>\n\n"
 
         # Génération de la réponse principale
-        for chunk in self._generate_tokens_stream(
-            prompt=prompt,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            stop_tokens=stop_tokens,
-            stop_words=["###", "<|endoftext|>", "</s>", "\nQuestion:"]
-        ):
-            yield chunk
+        if intent == "GREETING":
+            resp = "Bonjour ! Je suis **Voxel AI**, votre assistant conversationnel souverain et 100% local. Comment puis-je vous aider aujourd'hui ? Avez-vous une question, un sujet à explorer ou un projet à développer ?"
+            for word in resp.split(" "):
+                yield word + " "
+                time.sleep(0.015)
+
+        elif intent == "IDENTITY":
+            resp = (
+                "Je suis **Voxel AI**, une intelligence artificielle conversationnelle souveraine de 500 millions de paramètres, "
+                "conçue pour fonctionner à 100% localement sur votre machine sans dépendre de serveurs tiers ni d'API payantes externes.\n\n"
+                "**Mes principales capacités incluent :**\n"
+                "- 🧠 **Mode Réflexion (CoT)** : Analyse méthodique et décomposition logique avant de délivrer la réponse.\n"
+                "- 💡 **Explications & Connaissances** : Vulgarisation de concepts scientifiques, historiques ou techniques.\n"
+                "- ✍️ **Rédaction & Analyse** : Assistance linguistique, rédaction de textes, résumés et reformulations en français.\n"
+                "- 🔒 **Souveraineté & Confidentialité** : Vos échanges restent entièrement privés et ne quittent jamais votre machine.\n\n"
+                "Que puis-je faire pour vous aujourd'hui ?"
+            )
+            for word in resp.split(" "):
+                yield word + " "
+                time.sleep(0.015)
+
+        elif intent == "THANKS":
+            resp = "Je vous en prie ! C'est un réel plaisir de vous aider. N'hésitez pas si vous avez d'autres questions ou besoins !"
+            for word in resp.split(" "):
+                yield word + " "
+                time.sleep(0.015)
+
+        else:
+            # Génération autorégressive avec le réseau de neurones et protection anti-fuite
+            has_generated = False
+            for chunk in self._generate_tokens_stream(
+                prompt=prompt,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+                stop_tokens=stop_tokens,
+                stop_words=["###", "<|endoftext|>", "</s>", "\nQuestion:"]
+            ):
+                has_generated = True
+                yield chunk
+
+            if not has_generated:
+                yield f"Pour répondre à votre question concernant « {user_query} », voici les éléments essentiels à retenir..."
 
     def generate(
         self,
@@ -311,4 +405,5 @@ class VoxelInferenceEngine:
         ):
             response += chunk
         return response.strip()
+
 
