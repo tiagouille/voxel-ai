@@ -171,6 +171,7 @@ class VoxelInferenceEngine:
         )
 
         current_pos = len(input_ids)
+        prev_text = ""
 
         # 2. Étape de décodage autorégressif (Token par Token avec KV-Cache)
         for _ in range(max_new_tokens):
@@ -178,13 +179,19 @@ class VoxelInferenceEngine:
                 break
 
             generated_tokens.append(next_token)
-            token_str = self.tokenizer.decode([next_token], skip_special_tokens=False)
+            full_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
-            # Ne pas émettre les balises spéciales brutes si elles apparaissent
-            if "</s>" in token_str or "<|endoftext|>" in token_str:
+            # Arrêt dès qu'une balise spéciale ou fin de réponse apparaît
+            if "<|endoftext|>" in full_text or "</s>" in full_text or "###" in full_text:
+                clean = full_text.split("<|endoftext|>")[0].split("</s>")[0].split("###")[0]
+                if len(clean) > len(prev_text):
+                    yield clean[len(prev_text):]
                 break
 
-            yield token_str
+            if len(full_text) > len(prev_text):
+                delta = full_text[len(prev_text):]
+                prev_text = full_text
+                yield delta
 
             # Inférence pour un seul nouveau token grâce au KV-cache !
             next_input = torch.tensor([[next_token]], dtype=torch.long, device=self.device)

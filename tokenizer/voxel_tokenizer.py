@@ -128,19 +128,23 @@ class VoxelTokenizer:
         messages: List[Dict[str, str]],
         add_generation_prompt: bool = True
     ) -> str:
-        """Formate une liste de messages conversationnels en prompt textuel structuré."""
-        formatted = ""
+        """Formate les messages dans le format Alpaca natif de Voxel AI."""
+        blocks = []
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "").strip()
-            if role == "system":
-                formatted += f"<|system|>\n{content}</s>\n"
-            elif role == "user":
-                formatted += f"<|user|>\n{content}</s>\n"
+            if not content:
+                continue
+            if role == "user":
+                blocks.append(f"### Question:\n{content}")
             elif role == "assistant":
-                formatted += f"<|assistant|>\n{content}</s>\n"
+                blocks.append(f"### Réponse:\n{content}")
 
+        prompt = "\n\n".join(blocks)
         if add_generation_prompt:
-            formatted += "<|assistant|>\n"
+            if prompt:
+                prompt += "\n\n### Réponse:\n"
+            else:
+                prompt = "### Réponse:\n"
 
-        return formatted
+        return prompt
