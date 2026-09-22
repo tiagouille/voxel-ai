@@ -1,7 +1,7 @@
 {
   "model": {
     "name": "Voxel-AI-500M",
-    "vocab_size": 32000,
+    "vocab_size": 8192,
     "d_model": 1536,
     "n_layers": 16,
     "n_heads": 24,
@@ -9,7 +9,7 @@
     "d_ff": 4096,
     "max_seq_len": 2048,
     "tie_word_embeddings": false,
-    "norm_eps": 1e-5,
+    "norm_eps": 1e-05,
     "rope_theta": 10000.0,
     "dropout": 0.0,
     "initializer_range": 0.02
@@ -17,8 +17,8 @@
   "training": {
     "batch_size": 8,
     "gradient_accumulation_steps": 8,
-    "learning_rate": 3e-4,
-    "min_lr": 3e-5,
+    "learning_rate": 0.0003,
+    "min_lr": 3e-05,
     "weight_decay": 0.1,
     "beta1": 0.9,
     "beta2": 0.95,

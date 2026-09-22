@@ -27,6 +27,21 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
   let isGenerating = false;
 
+  // Mode Réflexion (DeepThink)
+  const btnThinkToggle = document.getElementById("btnThinkToggle");
+  let enableThinking = true;
+
+  if (btnThinkToggle) {
+    btnThinkToggle.addEventListener("click", () => {
+      enableThinking = !enableThinking;
+      btnThinkToggle.classList.toggle("active", enableThinking);
+      const textSpan = btnThinkToggle.querySelector(".think-text");
+      if (textSpan) {
+        textSpan.textContent = enableThinking ? "Mode Réflexion" : "Mode Direct";
+      }
+    });
+  }
+
   // Initialisation des sliders
   tempRange.addEventListener("input", (e) => tempVal.textContent = e.target.value);
   topPRange.addEventListener("input", (e) => topPVal.textContent = parseFloat(e.target.value).toFixed(2));
@@ -142,7 +157,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messages: conversationHistory,
         temperature: parseFloat(tempRange.value),
         top_p: parseFloat(topPRange.value),
-        max_tokens: parseInt(maxTokensRange.value)
+        max_tokens: parseInt(maxTokensRange.value),
+        enable_thinking: enableThinking
       };
 
       const response = await fetch("/api/chat/stream", {
@@ -182,7 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
               const dataObj = JSON.parse(dataStr);
               if (dataObj.token) {
                 fullAssistantText += dataObj.token;
-                botBubble.textContent = fullAssistantText;
+                renderAssistantBubble(botBubble, fullAssistantText);
                 scrollToBottom();
               }
             } catch (err) {
@@ -226,6 +242,70 @@ document.addEventListener("DOMContentLoaded", () => {
     const viewport = document.querySelector(".chat-viewport");
     if (viewport) {
       viewport.scrollTop = viewport.scrollHeight;
+    }
+  }
+
+  function renderAssistantBubble(bubble, text) {
+    if (text.includes("<think>")) {
+      const parts = text.split("<think>");
+      const afterThink = parts[1] || "";
+      let thinkingText = "";
+      let answerText = "";
+
+      if (afterThink.includes("</think>")) {
+        const thinkParts = afterThink.split("</think>");
+        thinkingText = thinkParts[0].trim();
+        answerText = thinkParts.slice(1).join("</think>").trimStart();
+      } else {
+        thinkingText = afterThink.trim();
+      }
+
+      const isThinkingDone = afterThink.includes("</think>");
+
+      let thinkingBlock = bubble.querySelector(".thinking-block");
+      if (!thinkingBlock) {
+        thinkingBlock = document.createElement("div");
+        thinkingBlock.className = "thinking-block";
+        thinkingBlock.innerHTML = `
+          <div class="thinking-header">
+            <span class="thinking-icon">💭</span>
+            <span class="thinking-title">Réflexion de Voxel AI...</span>
+            <span class="thinking-arrow">▾</span>
+          </div>
+          <div class="thinking-content"></div>
+        `;
+        thinkingBlock.querySelector(".thinking-header").addEventListener("click", () => {
+          thinkingBlock.classList.toggle("collapsed");
+        });
+        bubble.innerHTML = "";
+        bubble.appendChild(thinkingBlock);
+
+        const answerDiv = document.createElement("div");
+        answerDiv.className = "answer-text";
+        bubble.appendChild(answerDiv);
+      }
+
+      const contentEl = thinkingBlock.querySelector(".thinking-content");
+      const titleEl = thinkingBlock.querySelector(".thinking-title");
+      contentEl.textContent = thinkingText;
+
+      if (isThinkingDone) {
+        titleEl.textContent = "Réflexion terminée (cliquer pour afficher)";
+        if (!thinkingBlock.dataset.autoCollapsed && answerText.length > 5) {
+          thinkingBlock.classList.add("collapsed");
+          thinkingBlock.dataset.autoCollapsed = "true";
+        }
+      } else {
+        titleEl.textContent = "Réflexion en cours...";
+        thinkingBlock.classList.remove("collapsed");
+      }
+
+      const answerEl = bubble.querySelector(".answer-text");
+      if (answerEl) {
+        answerEl.textContent = answerText;
+      }
+    } else {
+      bubble.textContent = text;
     }
   }
 

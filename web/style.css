@@ -514,3 +514,111 @@ input[type="range"] {
     padding: 12px 12px 16px;
   }
 }
+
+/* ==========================================================================
+   MODE RÉFLEXION / THINKING ACCORDION (Style DeepSeek-R1 / Claude 3.7)
+   ========================================================================== */
+.think-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.think-toggle-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #a855f7;
+  color: #e9d5ff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+}
+
+.think-toggle-btn.active {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25));
+  border-color: #a855f7;
+  color: #f3e8ff;
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+.think-toggle-btn.active .think-icon {
+  animation: pulse-brain 2s infinite;
+}
+
+@keyframes pulse-brain {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px #a855f7); }
+  50% { transform: scale(1.18); filter: drop-shadow(0 0 8px #c084fc); }
+}
+
+/* Accordéon de Pensée dans les bulles */
+.thinking-block {
+  background: rgba(15, 17, 26, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(168, 85, 247, 0.1);
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #d8b4fe;
+  transition: background 0.2s ease;
+}
+
+.thinking-header:hover {
+  background: rgba(168, 85, 247, 0.18);
+  color: #f3e8ff;
+}
+
+.thinking-arrow {
+  margin-left: auto;
+  font-size: 0.85rem;
+  transition: transform 0.25s ease;
+  color: #a855f7;
+}
+
+.thinking-content {
+  padding: 12px 14px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: #94a3b8;
+  border-top: 1px solid rgba(168, 85, 247, 0.15);
+  font-family: 'JetBrains Mono', monospace;
+  white-space: pre-wrap;
+  background: rgba(10, 11, 16, 0.6);
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.thinking-block.collapsed .thinking-content {
+  display: none;
+}
+
+.thinking-block.collapsed .thinking-arrow {
+  transform: rotate(-90deg);
+}
+
+.answer-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-main);
+  white-space: pre-wrap;
+}
+

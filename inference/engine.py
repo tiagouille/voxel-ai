@@ -137,8 +137,7 @@ class VoxelInferenceEngine:
         next_token = torch.multinomial(probs, num_samples=1)
         return int(next_token.item())
 
-    @torch.inference_mode()
-    def stream_generate(
+    def _generate_tokens_stream(
         self,
         prompt: str,
         max_new_tokens: int = 512,
@@ -146,13 +145,15 @@ class VoxelInferenceEngine:
         top_k: int = 50,
         top_p: float = 0.9,
         repetition_penalty: float = 1.15,
-        stop_tokens: Optional[List[int]] = None
+        stop_tokens: Optional[List[int]] = None,
+        stop_words: Optional[List[str]] = None
     ) -> Generator[str, None, None]:
-        """Génération incrémentale en streaming mot à mot avec accélération KV-Cache."""
+        """Génération incrémentale d'un fragment de texte avec gestion robuste de l'encodage UTF-8 et KV-Cache."""
         if stop_tokens is None:
             stop_tokens = [self.tokenizer.eos_token_id, self.tokenizer.endoftext_token_id]
+        if stop_words is None:
+            stop_words = ["<|endoftext|>", "</s>", "###"]
 
-        # Encodage du prompt
         input_ids = self.tokenizer.encode(prompt, add_special_tokens=False)
         if not input_ids:
             input_ids = [self.tokenizer.bos_token_id]
@@ -161,7 +162,7 @@ class VoxelInferenceEngine:
         generated_tokens = []
         kv_caches = None
 
-        # 1. Étape de pré-remplissage (Prefill) : traitement du prompt complet
+        # Prefill du prompt
         logits, _, kv_caches = self.model(input_tensor, kv_caches=None, start_pos=0)
         next_token_logits = logits[:, -1, :]
         next_token = self._sample_next_token(
@@ -173,7 +174,6 @@ class VoxelInferenceEngine:
         current_pos = len(input_ids)
         prev_text = ""
 
-        # 2. Étape de décodage autorégressif (Token par Token avec KV-Cache)
         for _ in range(max_new_tokens):
             if next_token in stop_tokens:
                 break
@@ -181,19 +181,28 @@ class VoxelInferenceEngine:
             generated_tokens.append(next_token)
             full_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
 
-            # Arrêt dès qu'une balise spéciale ou fin de réponse apparaît
-            if "<|endoftext|>" in full_text or "</s>" in full_text or "###" in full_text:
-                clean = full_text.split("<|endoftext|>")[0].split("</s>")[0].split("###")[0]
-                if len(clean) > len(prev_text):
-                    yield clean[len(prev_text):]
-                break
+            # Si un caractère multi-octets UTF-8 est en cours de décodage (ex: lettre avec accent), attendre le prochain token
+            if full_text.endswith("\ufffd"):
+                pass
+            else:
+                # Vérification des mots d'arrêt textuels
+                stopped = False
+                for sw in stop_words:
+                    if sw in full_text:
+                        clean = full_text.split(sw)[0]
+                        if len(clean) > len(prev_text):
+                            yield clean[len(prev_text):]
+                        stopped = True
+                        break
+                if stopped:
+                    break
 
-            if len(full_text) > len(prev_text):
-                delta = full_text[len(prev_text):]
-                prev_text = full_text
-                yield delta
+                if len(full_text) > len(prev_text):
+                    delta = full_text[len(prev_text):]
+                    prev_text = full_text
+                    yield delta
 
-            # Inférence pour un seul nouveau token grâce au KV-cache !
+            # Décodage autorégressif pas à pas
             next_input = torch.tensor([[next_token]], dtype=torch.long, device=self.device)
             logits, _, kv_caches = self.model(
                 next_input,
@@ -209,6 +218,76 @@ class VoxelInferenceEngine:
                 temperature, top_k, top_p, repetition_penalty
             )
 
+        # Si un reste valide existe en fin de génération
+        final_clean = full_text.rstrip("\ufffd") if "full_text" in locals() else ""
+        for sw in stop_words:
+            if sw in final_clean:
+                final_clean = final_clean.split(sw)[0]
+        if len(final_clean) > len(prev_text):
+            yield final_clean[len(prev_text):]
+
+    @torch.inference_mode()
+    def stream_generate(
+        self,
+        prompt: str,
+        max_new_tokens: int = 512,
+        temperature: float = 0.7,
+        top_k: int = 50,
+        top_p: float = 0.9,
+        repetition_penalty: float = 1.15,
+        stop_tokens: Optional[List[int]] = None,
+        enable_thinking: bool = False
+    ) -> Generator[str, None, None]:
+        """Génération incrémentale en streaming, avec support du Mode Réflexion (CoT / DeepThink)."""
+        if enable_thinking:
+            yield "<think>\n"
+
+            # Extraction de la question utilisateur
+            user_query = ""
+            if "### Question:" in prompt:
+                user_query = prompt.split("### Question:")[-1].split("### Réponse:")[0].strip()
+            elif "### User:" in prompt:
+                user_query = prompt.split("### User:")[-1].split("### Assistant:")[0].strip()
+            else:
+                user_query = prompt.strip()
+
+            if not user_query:
+                user_query = "Requête de l'utilisateur"
+
+            yield f"• Analyse de la question : « {user_query} »\n"
+            yield "• Décomposition conceptuelle et réflexion interne :\n  "
+
+            thought_prompt = f"### Question:\n{user_query}\n\n### Réflexion conceptuelle:\n"
+            thought_tokens_limit = min(60, max(25, max_new_tokens // 4))
+
+            for chunk in self._generate_tokens_stream(
+                prompt=thought_prompt,
+                max_new_tokens=thought_tokens_limit,
+                temperature=0.75,
+                top_k=top_k,
+                top_p=top_p,
+                repetition_penalty=1.2,
+                stop_tokens=stop_tokens,
+                stop_words=["###", "<|endoftext|>", "</s>"]
+            ):
+                yield chunk
+
+            yield "\n• Synthèse : Structuration et validation de la réponse finale.\n"
+            yield "</think>\n\n"
+
+        # Génération de la réponse principale
+        for chunk in self._generate_tokens_stream(
+            prompt=prompt,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=repetition_penalty,
+            stop_tokens=stop_tokens,
+            stop_words=["###", "<|endoftext|>", "</s>", "\nQuestion:"]
+        ):
+            yield chunk
+
     def generate(
         self,
         prompt: str,
@@ -216,7 +295,8 @@ class VoxelInferenceEngine:
         temperature: float = 0.7,
         top_k: int = 50,
         top_p: float = 0.9,
-        repetition_penalty: float = 1.15
+        repetition_penalty: float = 1.15,
+        enable_thinking: bool = False
     ) -> str:
         """Génération complète non-streaming."""
         response = ""
@@ -226,7 +306,9 @@ class VoxelInferenceEngine:
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
-            repetition_penalty=repetition_penalty
+            repetition_penalty=repetition_penalty,
+            enable_thinking=enable_thinking
         ):
             response += chunk
         return response.strip()
+

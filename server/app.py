@@ -29,6 +29,7 @@ class ChatRequest(BaseModel):
     top_k: Optional[int] = 50
     repetition_penalty: Optional[float] = 1.15
     max_tokens: Optional[int] = 512
+    enable_thinking: Optional[bool] = True
 
 # Variable globale pour l'instance du moteur
 engine: Optional[VoxelInferenceEngine] = None
@@ -54,7 +55,7 @@ async def lifespan(app: FastAPI):
                 print(f"[!] Téléchargement automatique Hugging Face impossible : {dl_err}")
 
     device = getattr(app.state, "device", "cpu")
-    dtype = getattr(app.state, "dtype", "float16")
+    dtype = getattr(app.state, "dtype", "float32")
     tokenizer_dir = getattr(app.state, "tokenizer_dir", "tokenizer")
 
     print(f"[*] [Serveur Voxel AI] Initialisation du moteur d'inférence ({device}, {dtype})...")
@@ -140,7 +141,8 @@ async def chat_endpoint(req: ChatRequest):
         temperature=req.temperature,
         top_k=req.top_k,
         top_p=req.top_p,
-        repetition_penalty=req.repetition_penalty
+        repetition_penalty=req.repetition_penalty,
+        enable_thinking=bool(req.enable_thinking)
     )
     elapsed = time.time() - t0
 
@@ -166,7 +168,8 @@ async def chat_stream_endpoint(req: ChatRequest):
             temperature=req.temperature,
             top_k=req.top_k,
             top_p=req.top_p,
-            repetition_penalty=req.repetition_penalty
+            repetition_penalty=req.repetition_penalty,
+            enable_thinking=bool(req.enable_thinking)
         ):
             payload = json.dumps({"token": chunk})
             yield f"data: {payload}\n\n"
@@ -221,7 +224,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8000, help="Port d'écoute")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/voxel_ai_final.pt", help="Chemin du checkpoint")
     parser.add_argument("--device", type=str, default="cpu", help="Périphérique ('cpu' ou 'cuda')")
-    parser.add_argument("--dtype", type=str, default="float16", help="Précision ('float16', 'bfloat16' ou 'float32')")
+    parser.add_argument("--dtype", type=str, default="float32", help="Précision ('float16', 'bfloat16' ou 'float32')")
     parser.add_argument("--tokenizer", type=str, default="tokenizer", help="Dossier du tokenizer")
     args = parser.parse_args()
 
